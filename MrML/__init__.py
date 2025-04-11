@@ -2,10 +2,10 @@ from MrML.attention import *
 from MrML.decoder import *
 from MrML.embedding import *
 from MrML.encoder import *
-from MrML.old_jobs import *
+from MrML.feed_forward import *
+from MrML.linear import *
 from MrML.model_info import *
 from MrML.tools import *
-from MrML.old_transformer_manager import *
 from MrML.transformer import *
 from MrML.types import *
 from MrML.vocab import *

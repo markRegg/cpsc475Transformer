@@ -6,5 +6,3 @@ import torch
 import torch.nn as nn
 from torch import tensor
 from torch import Tensor, dtype as DType
-
-from MrML.tools import Layer

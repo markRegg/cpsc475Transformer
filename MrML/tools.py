@@ -1,20 +1,8 @@
-import math
 import torch.nn.functional as F
 from MrML.types import *
 from MrML.model_info import ModelInfo
 
 NEG_INF = float('-inf')
-
-def weight_tensor(size: Tuple[int], dtype: DType = torch.float32):
-    stddev = math.sqrt(2.0 / size[-1])
-    weight = torch.empty(size=size)
-    return nn.Parameter(weight.normal_(0, stddev))
-
-def relu(x: DType) -> DType:
-    return max(0, x)
-
-def leaky_relu(x: DType, alpha: float = 0.02) -> DType:
-    return x if x > 0 else alpha * x
 
 def softmax(logits: Tensor, dim: int = -1, epsilon: float = 1e-8) -> Tensor:
     # Exponentiate
@@ -37,6 +25,9 @@ def validate_stride(info: ModelInfo):
         raise ValueError(f"Invalid stride for chunking. Stride {info.stride} is not < seq_len for seq_len={info.seq_len}.")
     
 def num_chunks_needed(elements: Tensor, info: ModelInfo) -> int:
+    if elements.shape[0] <= info.seq_len:
+        return 1
+         
     stride = info.stride
     num_tokens = elements.shape[0] # Number of elements
     
@@ -54,7 +45,7 @@ def chunk(elements: Tensor, info: ModelInfo, dim: int = 0) -> Tensor:
         stride (int): The number of tokens to offset each chunk. 0 < stride < seq_len.
     Returns:
         Tensor: the elements chunked
-    """    
+    """
     num_chunks = num_chunks_needed(elements, info)
     stride = int(info.stride)
     seq_len = info.seq_len

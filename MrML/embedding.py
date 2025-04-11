@@ -7,7 +7,7 @@ class Embedding(nn.Module):
         super().__init__()
         self.embeddings = nn.Parameter(
             torch.randn(size=(info.vocab_len, info.d_model), dtype=info.dtype)
-        )
+        ).to(info.device)
     
     def forward(self, tokens: Tensor) -> Tensor:
         return self.embeddings[tokens]
@@ -30,8 +30,8 @@ class Embedder(nn.Module):
         self.token_embedder = Embedding(info)
 
         # Calculate and cache positional embeddings for seq_len tokens
-        self._pos_embeds = tensor([], dtype=info.dtype)        
-        pad_tokens = torch.full(fill_value=info.vocab.pad, size=(info.seq_len,), dtype=torch.int)
+        self._pos_embeds = tensor([], dtype=info.dtype).to(info.device)
+        pad_tokens = torch.full(fill_value=info.vocab.pad, size=(info.seq_len,), dtype=torch.int).to(info.device)
         self.pad_embeds = self(pad_tokens)
     
     def _get_pos_embeds(self, count: int) -> Tensor:
@@ -49,7 +49,7 @@ class Embedder(nn.Module):
                 
         if num_new > 0: # We need to calculate some new pos embeddings
             # Create space for new pos embeddings
-            new_space = torch.zeros(size=(num_new, self.info.d_model), dtype=self.info.dtype)
+            new_space = torch.zeros(size=(num_new, self.info.d_model), dtype=self.info.dtype).to(self.info.device)
             self._pos_embeds = torch.cat((self._pos_embeds, new_space), dim=0)
             
             # Calculate new pos embeddings
@@ -76,7 +76,9 @@ class Embedder(nn.Module):
         token_embeds = self.token_embedder(tokens)
 
         # Get the positional embeddings for each token in the sequence
-        pos_embeds = self._get_pos_embeds(count=tokens.shape[0])
+        pos_embeds = self._get_pos_embeds(count=self.info.seq_len)
+        pos_embeds = pos_embeds.unsqueeze(0)
+        pos_embeds = pos_embeds.repeat(token_embeds.shape[0], 1, 1)
         
         # Add the token and positional embeddings element-wise
         embeddings = token_embeds + pos_embeds

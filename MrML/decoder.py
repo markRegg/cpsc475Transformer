@@ -16,13 +16,13 @@ class DecoderLayer(nn.Module):
 
     def forward(self, D: Tensor, E: Tensor, d_mask: Tensor, e_mask: Tensor) -> Tensor:
         result = self.self_attention(V=D, K=D, Q=D, mask=d_mask)
-        D += result
+        D = D + result
         D.norm()
         
-        D += self.cross_attention(V=E, K=E, Q=D, mask=e_mask)
+        D = D + self.cross_attention(V=E, K=E, Q=D, mask=e_mask)
         D.norm()
         
-        D += self.feef_forward(D)
+        D = D + self.feef_forward(D)
         D.norm()
         
         return D

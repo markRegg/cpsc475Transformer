@@ -13,10 +13,10 @@ class EncoderLayer(nn.Module):
         self.feef_forward = FullyConnectedFeedForwardLayer(info)
     
     def forward(self, X: Tensor, mask: Tensor) -> Tensor:
-        X += self.multi_head_attention(V=X, K=X, Q=X, mask=mask)
+        X = X + self.multi_head_attention(V=X, K=X, Q=X, mask=mask)
         X.norm()
         
-        X += self.feef_forward(X)
+        X = X + self.feef_forward(X)
         X.norm()
         
         return X

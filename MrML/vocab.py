@@ -1,4 +1,5 @@
 from MrML.types import *
+from random import randint, sample, seed
 
 class Vocab:
     def __init__(self, tokens: List[str]):
@@ -39,3 +40,7 @@ class Vocab:
             response += self.lexemes[token]
 
         return response
+    
+    def random_token(self):
+        """Returns a pseudorandomly generated token from the vocabulary"""
+        return self[randint(0, len(self) - 3)]
