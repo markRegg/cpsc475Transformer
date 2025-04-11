@@ -9,3 +9,4 @@ from MrML.tools import *
 from MrML.transformer import *
 from MrML.types import *
 from MrML.vocab import *
+from MrML.analysis import *

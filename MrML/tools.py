@@ -4,9 +4,28 @@ from MrML.model_info import ModelInfo
 
 NEG_INF = float('-inf')
 
+def shuffle(datasets: Tuple[List]) -> Tuple[List]:
+    if len(datasets) == 0:
+        return []
+    
+    indices = torch.randperm(len(datasets[0]))
+    return [[d[i] for i in indices] for d in datasets]
+
+def batch(info: ModelInfo, data: List) -> List[Tensor]:
+    batch_range = range(0, len(data), info.batch_size)
+    batches = [data[i: i + info.batch_size] for i in batch_range]
+    return [torch.stack(batch, dim=0) for batch in batches]
+
+def batch_labels(info: ModelInfo, labels: List) -> List[Tensor]:
+    batch_range = range(0, len(labels), info.batch_size)
+    return [tensor(labels[i: i + info.batch_size], dtype=info.dtype, device=info.device) for i in batch_range]
+
 def softmax(logits: Tensor, dim: int = -1, epsilon: float = 1e-8) -> Tensor:
+    logits_adjusted = logits - logits.max(dim=dim, keepdim=True).values
+    logits_adjusted = torch.nan_to_num(logits_adjusted, nan=float('-inf'))
+    
     # Exponentiate
-    exp_logits = torch.exp(logits)
+    exp_logits = torch.exp(logits_adjusted)
     
     # Compute the sum of exponentiated logits along the last axis (seq_len)
     exp_sum = exp_logits.sum(dim=dim, keepdim=True)  # Keep dim for broadcasting
@@ -77,8 +96,8 @@ def pad(tokens: Tensor, info: ModelInfo) -> Tuple[Tensor, Tensor]:
     num_pad = int(((num_chunks * stride) + info.seq_len - stride) - tokens.shape[0])
     num_pad = max(0, num_pad) # Make sure num_pad >= 0
     
-    mask_token_part = torch.ones_like(tokens)
-    mask_pad_part = torch.zeros(size=(num_pad,), dtype=torch.int)
+    mask_token_part = torch.ones_like(tokens, device=info.device)
+    mask_pad_part = torch.zeros(size=(num_pad,), dtype=torch.int, device=info.device)
     mask = torch.cat((mask_token_part, mask_pad_part), dim=0)
     
     # Pad the end of the token sequence so last chunk will have size (seq_len,)
@@ -94,3 +113,21 @@ def make_mask(ones: torch.Size, shape: torch.Size, dtype: DType = torch.float32)
     mask[slices] = one_part
     
     return mask
+
+class EarlyStopping:
+    def __init__(self, patience=5, delta=0.0):
+        self.patience = patience
+        self.delta = delta
+        self.counter = 0
+        self.best_loss = None
+        self.early_stop = False
+
+    def __call__(self, val_loss):
+        if self.best_loss is None or val_loss < self.best_loss - self.delta:
+            self.best_loss = val_loss
+            self.counter = 0
+        else:
+            self.counter += 1
+            if self.counter >= self.patience:
+                self.early_stop = True
+        return self.early_stop

@@ -6,11 +6,12 @@ class Embedding(nn.Module):
     def __init__(self, info: ModelInfo):
         super().__init__()
         self.embeddings = nn.Parameter(
-            torch.randn(size=(info.vocab_len, info.d_model), dtype=info.dtype)
-        ).to(info.device)
-    
+            torch.empty(size=(info.vocab_len, info.d_model), dtype=info.dtype, device=info.device)
+        )
+        nn.init.kaiming_normal_(self.embeddings)
+
     def forward(self, tokens: Tensor) -> Tensor:
-        return self.embeddings[tokens]
+        return self.embeddings[tokens].long()
 
 class Embedder(nn.Module):
     """Handles token and positional embedding"""
@@ -30,9 +31,8 @@ class Embedder(nn.Module):
         self.token_embedder = Embedding(info)
 
         # Calculate and cache positional embeddings for seq_len tokens
-        self._pos_embeds = tensor([], dtype=info.dtype).to(info.device)
-        pad_tokens = torch.full(fill_value=info.vocab.pad, size=(info.seq_len,), dtype=torch.int).to(info.device)
-        self.pad_embeds = self(pad_tokens)
+        self._pos_embeds = tensor([], dtype=info.dtype, device=info.device)
+        self._get_pos_embeds(count=info.seq_len)
     
     def _get_pos_embeds(self, count: int) -> Tensor:
         """Gets positional embeddings for tokens in positions 0 to count using
@@ -44,18 +44,18 @@ class Embedder(nn.Module):
         Returns:
             Tensor: The positional embeddings with shape (count, d_model)
         """        
-        num_cahced = self._pos_embeds.shape[0]  # Num pos embeddings already calculated
-        num_new = count - num_cahced            # Num pos embeddings that need to be calculated
+        num_cached = self._pos_embeds.shape[0]  # Num pos embeddings already calculated
+        num_new = count - num_cached            # Num pos embeddings that need to be calculated
                 
         if num_new > 0: # We need to calculate some new pos embeddings
             # Create space for new pos embeddings
-            new_space = torch.zeros(size=(num_new, self.info.d_model), dtype=self.info.dtype).to(self.info.device)
+            new_space = torch.zeros(size=(num_new, self.info.d_model), dtype=self.info.dtype, device=self.info.device)
             self._pos_embeds = torch.cat((self._pos_embeds, new_space), dim=0)
             
             # Calculate new pos embeddings
-            for pos in range(self._pos_embeds.shape[0], count):
-                for i in range(self.d_model // 2):
-                    angle = pos / (10000 ** ((2 * i) / self.shape.d_model))
+            for pos in range(num_cached, count):
+                for i in range(self.info.d_model // 2):
+                    angle = pos / (10000 ** ((2 * i) / self.info.d_model))
                     self._pos_embeds[pos, 2 * i] = math.sin(angle)
                     self._pos_embeds[pos, (2 * i) + 1] = math.cos(angle)
         
@@ -82,4 +82,5 @@ class Embedder(nn.Module):
         
         # Add the token and positional embeddings element-wise
         embeddings = token_embeds + pos_embeds
+
         return embeddings

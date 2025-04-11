@@ -32,20 +32,47 @@ class Transformer(nn.Module):
         self.logits = self.linear(self.D)
         self.probs = softmax(self.logits)
 
+# class LanguageAcceptanceClassifier(nn.Module):
+#     def __init__(self, info: ModelInfo, n_layers: int = DEFAULT_N_LAYERS, n_heads: int = DEFAULT_N_HEADS, dropout: float = 0.15):   
+#         super().__init__()
+#         self.info = info   
+#         self.embedder = Embedder(info)
+#         self.encoder = Encoder(info, n_layers, n_heads)
+#         self.linear = LinearLayer(info, output_shape=(1, info.d_model))
+#         self.dropout = nn.Dropout(p=dropout)
+                
+#     def forward(self, X: Tensor, input_masks: Tensor):
+#         embeddings = self.embedder(X) 
+               
+#         X = self.encoder(embeddings, input_masks)
+        
+#         X = X.mean(dim=1)
+#         X = self.linear(X)
+#         X = X.squeeze(0).squeeze(-1)
+                                
+#         X = self.dropout(X)
+#         return X
+
 class LanguageAcceptanceClassifier(nn.Module):
     def __init__(self, info: ModelInfo, n_layers: int = DEFAULT_N_LAYERS, n_heads: int = DEFAULT_N_HEADS, dropout: float = 0.15):   
         super().__init__()
         self.info = info   
         self.embedder = Embedder(info)
         self.encoder = Encoder(info, n_layers, n_heads)
-        self.linear = LinearLayer(info, output_size=1, bias=False)
+        self.first_linear = LinearLayer(info, output_shape=(1, info.d_model))
+        self.second_linear = LinearLayer(info, output_shape=(1, info.seq_len))
         self.dropout = nn.Dropout(p=dropout)
                 
     def forward(self, X: Tensor, input_masks: Tensor):
-        embeddings = self.embedder(X)
+        embeddings = self.embedder(X) 
+               
         X = self.encoder(embeddings, input_masks)
-        X = X.mean(dim=1)
-        X = self.linear(X)
-        X = self.dropout(X)
+        
+        X = self.first_linear(X)
         X = X.squeeze(-1)
+        
+        X = self.second_linear(X)
+        X = X.squeeze(0).squeeze(-1)
+                                
+        X = self.dropout(X)
         return X

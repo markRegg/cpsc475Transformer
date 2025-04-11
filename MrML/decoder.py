@@ -3,6 +3,7 @@ from MrML.model_info import *
 from MrML.attention import MultiHeadAttenionLayer
 from MrML.feed_forward import FullyConnectedFeedForwardLayer
 from MrML.linear import LinearLayer
+from torch.nn import functional as F
 
 DEFAULT_N_HEADS = 6
 DEFAULT_N_LAYERS = 6
@@ -17,13 +18,13 @@ class DecoderLayer(nn.Module):
     def forward(self, D: Tensor, E: Tensor, d_mask: Tensor, e_mask: Tensor) -> Tensor:
         result = self.self_attention(V=D, K=D, Q=D, mask=d_mask)
         D = D + result
-        D.norm()
+        D = F.normalize(D)
         
         D = D + self.cross_attention(V=E, K=E, Q=D, mask=e_mask)
-        D.norm()
+        D = F.normalize(D)
         
         D = D + self.feef_forward(D)
-        D.norm()
+        D = F.normalize(D)
         
         return D
 

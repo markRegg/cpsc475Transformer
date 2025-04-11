@@ -2,20 +2,19 @@ from MrML.types import *
 from MrML.model_info import ModelInfo
 
 class LinearLayer(nn.Module):
-    def __init__(self, info: ModelInfo, output_size: int, bias: bool = True):
+    def __init__(self, info: ModelInfo, output_shape: Tuple[int], bias: bool = True):
         super().__init__()
         self.info = info
         
         self.W = nn.Parameter(
-            torch.empty(size=(output_size, info.d_model), dtype=info.dtype).to(info.device)
+            torch.empty(size=output_shape, dtype=info.dtype, device=info.device)
         )
-        nn.init.xavier_uniform_(self.W)
+        nn.init.kaiming_normal_(self.W, nonlinearity='relu')
 
         if bias:
             self.b = nn.Parameter(
-                torch.empty(size=(output_size,), dtype=info.dtype).to(info.device)
+                torch.zeros(size=output_shape[:-1], dtype=info.dtype, device=info.device)
             )
-            nn.init.zeros_(self.b)
         else:
             self.b = None
         

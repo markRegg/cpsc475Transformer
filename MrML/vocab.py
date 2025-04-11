@@ -22,8 +22,8 @@ class Vocab:
         else:
             raise TypeError(f"Vocab index must be int or str, received {type(key)} instead.")
     
-    def tokenize(self, prompt: str) -> Tensor:
-        return tensor([self.ids[c] for c in list(prompt)], dtype=torch.int)
+    def tokenize(self, prompt: str, device) -> Tensor:
+        return tensor([self.ids[c] for c in list(prompt)], dtype=torch.int, device=device)
     
     def stringify(self, prediction: Tensor, format: bool = True) -> List[str]:
         prediction = prediction.tolist()
@@ -43,4 +43,4 @@ class Vocab:
     
     def random_token(self):
         """Returns a pseudorandomly generated token from the vocabulary"""
-        return self[randint(0, len(self) - 3)]
+        return self[randint(0, len(self) - 4)]
