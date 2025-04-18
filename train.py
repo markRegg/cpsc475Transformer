@@ -1,5 +1,4 @@
 import os
-import atexit
 import argparse
 from MrML import *
 from info import *
@@ -28,9 +27,9 @@ def train(
         
     for epoch in range(num_epochs):
         if epoch == dropout_start:
-            model.dropout.p = dropout
+            model.set_dropout_rate(dropout)
         if epoch == dropout_end:
-            model.dropout.p = 0
+            model.set_dropout_rate(0.0)
             
         epoch_count = epoch
         model.train()
@@ -93,7 +92,14 @@ if __name__ == "__main__":
     max_epochs = args.epochs
     early_stop_allowed = not args.no_early_stop
     
-    train_set, test_set = load_train_test_split(info, BATCH_SIZE * 10, make_new=args.new_data, device=device)
+    train_set, test_set = load_train_test_split(info, BATCH_SIZE * 1500, make_new=args.new_data, device=device)
+    
+    print("\nTrain set class distribution:")
+    train_set.class_distribution()
+    
+    print("\nTest set class distribution:")
+    train_set.class_distribution()
+    
     optimizer = torch.optim.Adam(model.parameters(), args.learn_rate)
             
     print()

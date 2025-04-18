@@ -12,7 +12,7 @@ def scaled_dot_product_attention(V: Tensor, K: Tensor, Q: Tensor, mask: Tensor) 
     scaled = similarities / math.sqrt(d_k)
         
     if mask is not None:
-        mask = mask[:, :, None, None] 
+        mask = mask[:, None, None, :]
         
         # Apply the mask
         masked = scaled.masked_fill(mask == 1.0, float('-inf'))
@@ -43,10 +43,10 @@ class MultiHeadAttenionLayer(nn.Module):
     def forward(self, V: Tensor, K: Tensor, Q: Tensor, mask: Tensor) -> Tensor:
         batch_size, seq_len, d_model = self.info.shape
         
-        V = self.W_v(V).view(batch_size, seq_len, self.n_heads, self.d_k)
-        K = self.W_k(K).view(batch_size, seq_len, self.n_heads, self.d_k)
-        Q = self.W_q(Q).view(batch_size, seq_len, self.n_heads, self.d_k)
-                
+        V = self.W_v(V).view(batch_size, seq_len, self.n_heads, self.d_k).transpose(1, 2)
+        K = self.W_k(K).view(batch_size, seq_len, self.n_heads, self.d_k).transpose(1, 2)
+        Q = self.W_q(Q).view(batch_size, seq_len, self.n_heads, self.d_k).transpose(1, 2)
+
         output = scaled_dot_product_attention(V=V, K=K, Q=Q, mask=mask)
         output = output.transpose(1, 2).contiguous().view(batch_size, seq_len, d_model)
         output = self.W_o(output)

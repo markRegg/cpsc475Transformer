@@ -11,7 +11,7 @@ class Embedding(nn.Module):
         nn.init.xavier_uniform_(self.embeddings)
 
     def forward(self, tokens: Tensor) -> Tensor:
-        return self.embeddings[tokens].long()
+        return self.embeddings[tokens]
 
 class Embedder(nn.Module):
     """Handles token and positional embedding"""
@@ -77,8 +77,7 @@ class Embedder(nn.Module):
 
         # Get the positional embeddings for each token in the sequence
         pos_embeds = self._get_pos_embeds(count=self.info.seq_len)
-        pos_embeds = pos_embeds.unsqueeze(0)
-        pos_embeds = pos_embeds.repeat(token_embeds.shape[0], 1, 1)
+        pos_embeds = pos_embeds.unsqueeze(0).expand(self.info.batch_size, -1, -1)
         
         # Add the token and positional embeddings element-wise
         embeddings = token_embeds + pos_embeds

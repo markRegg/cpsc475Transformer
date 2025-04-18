@@ -54,25 +54,20 @@ class Transformer(nn.Module):
 #         return X
 
 class LanguageAcceptanceClassifier(nn.Module):
-    def __init__(self, info: ModelInfo, n_layers: int = DEFAULT_N_LAYERS, n_heads: int = DEFAULT_N_HEADS, dropout: float = 0.15):   
+    def __init__(self, info: ModelInfo, n_layers: int = DEFAULT_N_LAYERS, n_heads: int = DEFAULT_N_HEADS, dropout: float = 0.1):   
         super().__init__()
         self.info = info   
         self.embedder = Embedder(info)
-        self.encoder = Encoder(info, n_layers, n_heads)
-        self.first_linear = LinearLayer(info, output_shape=(1, info.d_model))
-        self.second_linear = LinearLayer(info, output_shape=(1, info.seq_len))
-        self.dropout = nn.Dropout(p=dropout)
+        self.encoder = Encoder(info, n_layers, n_heads, dropout)
+        self.classifier = nn.Linear(info.d_model, 1)
+    
+    def set_dropout_rate(self, p: float):
+        self.encoder.set_dropout_rate(p)
                 
     def forward(self, X: Tensor, input_masks: Tensor):
         embeddings = self.embedder(X) 
-               
         X = self.encoder(embeddings, input_masks)
-        
-        X = self.first_linear(X)
+        X = self.classifier(X)
+        X = torch.sum(X * input_masks.unsqueeze(-1), dim=1) / torch.sum(input_masks, dim=1, keepdim=True)
         X = X.squeeze(-1)
-        
-        X = self.second_linear(X)
-        X = X.squeeze(0).squeeze(-1)
-                                
-        X = self.dropout(X)
         return X

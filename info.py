@@ -9,10 +9,10 @@ vocab = Vocab(nums + lowercase + uppercase + symbols)
 
 BATCH_SIZE = 64
 SEQ_LEN = 64
-D_MODEL = 32
+D_MODEL = 8
 STRIDE = SEQ_LEN // 2
-N_LAYERS = 4
-N_HEADS = 4
+N_LAYERS = 1
+N_HEADS = 1
 
 device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 torch.set_float32_matmul_precision('medium')

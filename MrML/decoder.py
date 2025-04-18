@@ -13,7 +13,7 @@ class DecoderLayer(nn.Module):
         super().__init__()
         self.self_attention = MultiHeadAttenionLayer(info, n_heads)
         self.cross_attention = MultiHeadAttenionLayer(info, n_heads)
-        self.feef_forward = FullyConnectedFeedForwardLayer(info)
+        self.feed_forward = FullyConnectedFeedForwardLayer(info)
 
     def forward(self, D: Tensor, E: Tensor, d_mask: Tensor, e_mask: Tensor) -> Tensor:
         result = self.self_attention(V=D, K=D, Q=D, mask=d_mask)
@@ -23,7 +23,7 @@ class DecoderLayer(nn.Module):
         D = D + self.cross_attention(V=E, K=E, Q=D, mask=e_mask)
         D = F.normalize(D)
         
-        D = D + self.feef_forward(D)
+        D = D + self.feed_forward(D)
         D = F.normalize(D)
         
         return D
