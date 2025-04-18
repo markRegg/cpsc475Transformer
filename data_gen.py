@@ -1,30 +1,103 @@
-import json
+from __future__ import annotations
+import os
+import torch
+from torch.utils.data import Dataset
+from sklearn.model_selection import train_test_split
 from random import randint, sample, seed
 from MrML import *
-from info import *
 
-MIN_N = 1
-MAX_N = SEQ_LEN // 3
-seed(9)                 # Seed pseudo-RNG for reproducibility
+SentenceDataDict = Dict[str, Union[List[str], Tensor]]
 
-def generate_valid_string() -> str:
-    """Generates a valid or invalid string of pseudorandom length in language L
+class SentenceDataset(Dataset):
+    def __init__(self, info: ModelInfo, data: Union[SentenceDataDict, SentenceDataset], device: Optional[str] = None):
+        super().__init__()
+        self.info = info
+        self.sentences = data["sentences"]
+        self.tokens = data["tokens"].to(device)
+        self.masks = data["masks"].to(device)
+        self.labels = data["labels"].to(device)
 
-    Args:
-        valid (bool): Whether or not to generate a valid string
+    def __len__(self):
+        return len(self.sentences)
 
-    Returns:
-        string: A valid or invalid string of pseudorandom length in langauge L
-    """
+    def __getitem__(self, i):
+        return self.sentences[i], self.tokens[i], self.masks[i], self.labels[i]
     
+    def subset(self, indices: Tensor) -> SentenceDataset:
+        return SentenceDataset(self.info, {
+            "sentences": [self.sentences[i] for i in indices.tolist()],
+            "tokens": self.tokens[indices], 
+            "masks": self.masks[indices], 
+            "labels": self.labels[indices]
+        }, device=self.tokens.device)
+    
+    def epoch(self):
+        batch_size = self.info.batch_size
+        num_elements = len(self)
+        order = torch.randperm(num_elements, dtype=torch.long)
+        
+        for batch_start in range(0, num_elements, batch_size):
+            indices = order[batch_start : batch_start + batch_size]
+            
+            sentences = [self.sentences[i] for i in indices.tolist()]
+            tokens = self.tokens[indices]
+            masks = self.masks[indices]
+            labels = self.labels[indices]
+            
+            yield sentences, tokens, masks, labels
+    
+    def save(self, filepath: str = "data/data.pt"):
+        torch.save({
+            "sentences": self.sentences,
+            "tokens": self.tokens, 
+            "masks": self.masks, 
+            "labels": self.labels,
+        }, "data/data.pt")
+            
+        print(f"Saved dataset of {len(self)} entries to {filepath}")
+    
+    @staticmethod
+    def load(filepath: str, info: ModelInfo, device: Optional[str] = None):
+        data = torch.load(filepath, map_location=device, weights_only=False)
+        return SentenceDataset(info, data, device)
+    
+    def class_distribution(self):
+        trues = 0
+        falses = 0
+
+        # Loop through the data and count the labels
+        for label in self.labels:
+            if label >= 0.5:
+                trues += 1
+            else:
+                falses += 1
+        
+        total = trues + falses
+        true_pct = trues / total
+        false_pct = falses / total
+        print(f"Trues: {trues} ({true_pct:.2%}), Falses: {falses} ({false_pct:.2%})")
+        
+        return (trues, falses), (true_pct, false_pct)
+
+
+
+def generate_valid_sentence(vocab: Vocab, min_n: int = 0, max_n: int = 100) -> str:
     token_a = vocab.random_token()
     token_b = vocab.random_token()
     
     while token_a == token_b:
         token_b = vocab.random_token()
     
-    n = range(randint(MIN_N, MAX_N))
+    n = range(randint(min_n, max_n))
     return "".join([token_a for _ in n] + [token_b for _ in n] + [token_a for _ in n])
+
+def generate_valid_sentences(size: int, vocab: Vocab, min_n: int = 0, max_n: int = 100):
+    sentences = set()
+    
+    while len(sentences) < size:
+        sentences.add(generate_valid_sentence(vocab, min_n, max_n))
+    
+    return list(sentences)
 
 def add_errors(string: str) -> str:
     token_a, token_b = set(string)
@@ -40,48 +113,85 @@ def add_errors(string: str) -> str:
 
     return string
 
-def save(file_path: str, tokens: List, masks: List, labels: List, strings: List):
-    token_lists = [t.tolist() for t in tokens]
-    masks_lists = [m.tolist() for m in masks]
+def generate_dataset(info: ModelInfo, size: int, pct_valid: float = 0.5, rand_seed: int = 0, device: Optional[str] = None) -> SentenceDataset:
+    print("Generating Dataset...")
+    seed(rand_seed)
+    torch.manual_seed(rand_seed)
     
-    file_output = {
-        "tokens": token_lists, 
-        "masks": masks_lists, 
-        "labels": labels, 
-        "strings": strings
-    }
-    
-    with open(file_path, "w") as file:
-        json.dump(file_output, file)
-    
-    print(f"Saved dataset of {len(labels)} entries to {file_path}")
-
-def generate_dataset(file_path: str, count: int = BATCH_SIZE * 20, pct_valid: float = 0.5) -> List[Tuple[Tensor, Tensor, bool, str]]:
-    strings = set()
-    
-    while len(strings) < count:
-        strings.add(generate_valid_string())
-    
-    strings = list(strings)
-    labels = [1.0 for _ in range(count)]
+    sentences = list(generate_valid_sentences(size, info.vocab, min_n=1, max_n=info.seq_len // 3))
+    labels = torch.ones(size=(size,), dtype=info.dtype)
         
-    num_invalid = int(count * (1 - pct_valid))
-    indexes_to_bork = sample(range(count), num_invalid)
+    num_invalid = int(size * (1 - pct_valid))
+    indexes_to_bork = torch.randperm(size)[:num_invalid]
+    labels[indexes_to_bork] = 0.0
     
-    for i in indexes_to_bork:
-        string = strings[i]
-        strings[i] = add_errors(string)
-        labels[i] = 0.0
+    for i in indexes_to_bork.tolist():
+        sentence = sentences[i]
+        sentences[i] = add_errors(sentence)
     
     tokens = []
     masks = []
     
-    for string in strings:
-        t = vocab.tokenize(string, device=info.device)
+    for sentence in sentences:
+        t = info.vocab.tokenize(sentence, device=info.device)
         t, m = pad(t, info)
         
         tokens.append(t)
         masks.append(m)
+    
+    tokens = torch.stack(tokens, dim=0)
+    masks = torch.stack(masks, dim=0)
+    
+    dataset = SentenceDataset(info, {
+        "sentences": sentences,
+        "tokens": tokens, 
+        "masks": masks, 
+        "labels": labels,
+    })
+    
+    print("Finished Generating Dataset, saving...")
+    dataset.save()
+    print("Saved Dataset")
+    return dataset
+
+def make_train_test_split(dataset: SentenceDataset, test_pct: float = 0.3, rand_seed: int = 0) -> Tuple[SentenceDataset, SentenceDataset]:
+    print("Making train/test split...")
+    train_indices, test_indices = train_test_split(
+        range(len(dataset)),
+        test_size=test_pct,
+        random_state=rand_seed,
+        stratify=dataset.labels.cpu().numpy()
+    )
+    
+    train_indices = tensor(train_indices, dtype=torch.long)
+    test_indices = tensor(test_indices, dtype=torch.long)
+    
+    train = dataset.subset(train_indices)
+    test = dataset.subset(test_indices)
+    
+    print("Finished Generating train/test split, saving...")
+    torch.save(train, "data/train.pt")
+    torch.save(test, "data/test.pt")
+    
+    print("Saved train/test split")
+    return train, test
+
+def load_train_set(info: ModelInfo, device: Optional[str] = None):
+    return SentenceDataset.load("data/train.pt", info=info, device=device)
+
+def load_test_set(info: ModelInfo, device: Optional[str] = None):
+    return torch.load("data/test.pt", info=info, device=device)
+
+def load_train_test_split(info: ModelInfo, total_size: int, make_new: bool = False, device: Optional[str] = None):
+    print("Loading train/test split...")
+    if make_new or not os.path.exists("data/data.pt") or not os.path.exists("data/test.pt") or not os.path.exists("data/train.pt"):
+        if make_new or not os.path.exists("data/data.pt"):
+            dataset = generate_dataset(info, total_size)
+        else:
+            dataset = SentenceDataset.load("data/data.pt", info=info, device=device)
         
-    save(file_path, tokens, masks, labels, strings)
-    return tokens, masks, labels, strings
+        return make_train_test_split(dataset)
+    
+    train, test = load_train_set(info, device), load_test_set(info, device)
+    print("Loaded train/test split")
+    return train, test

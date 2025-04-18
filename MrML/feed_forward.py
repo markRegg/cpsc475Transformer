@@ -17,14 +17,16 @@ class FullyConnectedFeedForwardLayer(nn.Module):
             d_ff = d_model * 4
                 
         self.W1 = nn.Parameter(torch.empty(size=(d_model, d_ff), dtype=dtype, device=info.device))
-        nn.init.kaiming_normal_(self.W1, nonlinearity='relu')
+        nn.init.xavier_uniform_(self.W1)
         
-        self.b1 = nn.Parameter(torch.zeros(size=(d_ff,), dtype=dtype, device=info.device))
+        self.b1 = nn.Parameter(torch.empty(size=(d_ff,), dtype=dtype, device=info.device))
+        nn.init.uniform_(self.b1, -0.01, 0.01)
         
         self.W2 = nn.Parameter(torch.empty(size=(d_ff, d_model), dtype=dtype, device=info.device))
-        nn.init.kaiming_normal_(self.W2, nonlinearity='relu')
+        nn.init.xavier_uniform_(self.W2)
         
-        self.b2 = nn.Parameter(torch.zeros(size=(d_model,), dtype=dtype, device=info.device))
+        self.b2 = nn.Parameter(torch.empty(size=(d_model,), dtype=dtype, device=info.device))
+        nn.init.uniform_(self.b2, -0.01, 0.01)
         
     def forward(self, X: Tensor) -> Tensor:
         X = X

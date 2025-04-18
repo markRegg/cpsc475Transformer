@@ -8,7 +8,7 @@ class Embedding(nn.Module):
         self.embeddings = nn.Parameter(
             torch.empty(size=(info.vocab_len, info.d_model), dtype=info.dtype, device=info.device)
         )
-        nn.init.kaiming_normal_(self.embeddings)
+        nn.init.xavier_uniform_(self.embeddings)
 
     def forward(self, tokens: Tensor) -> Tensor:
         return self.embeddings[tokens].long()

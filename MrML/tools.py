@@ -4,22 +4,6 @@ from MrML.model_info import ModelInfo
 
 NEG_INF = float('-inf')
 
-def shuffle(datasets: Tuple[List]) -> Tuple[List]:
-    if len(datasets) == 0:
-        return []
-    
-    indices = torch.randperm(len(datasets[0]))
-    return [[d[i] for i in indices] for d in datasets]
-
-def batch(info: ModelInfo, data: List) -> List[Tensor]:
-    batch_range = range(0, len(data), info.batch_size)
-    batches = [data[i: i + info.batch_size] for i in batch_range]
-    return [torch.stack(batch, dim=0) for batch in batches]
-
-def batch_labels(info: ModelInfo, labels: List) -> List[Tensor]:
-    batch_range = range(0, len(labels), info.batch_size)
-    return [tensor(labels[i: i + info.batch_size], dtype=info.dtype, device=info.device) for i in batch_range]
-
 def softmax(logits: Tensor, dim: int = -1, epsilon: float = 1e-8) -> Tensor:
     logits_adjusted = logits - logits.max(dim=dim, keepdim=True).values
     logits_adjusted = torch.nan_to_num(logits_adjusted, nan=float('-inf'))

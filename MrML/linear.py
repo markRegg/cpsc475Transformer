@@ -9,12 +9,13 @@ class LinearLayer(nn.Module):
         self.W = nn.Parameter(
             torch.empty(size=output_shape, dtype=info.dtype, device=info.device)
         )
-        nn.init.kaiming_normal_(self.W, nonlinearity='relu')
+        nn.init.xavier_uniform_(self.W)
 
         if bias:
             self.b = nn.Parameter(
-                torch.zeros(size=output_shape[:-1], dtype=info.dtype, device=info.device)
+                torch.empty(size=output_shape[:-1], dtype=info.dtype, device=info.device)
             )
+            nn.init.uniform_(self.b, -0.01, 0.01)
         else:
             self.b = None
         

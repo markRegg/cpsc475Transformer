@@ -7,15 +7,14 @@ uppercase = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 symbols = list(",./;'[]\`-=<>?:\"{\}|~_+!@#$%^&*() ")
 vocab = Vocab(nums + lowercase + uppercase + symbols)
 
-BATCH_SIZE = 32
+BATCH_SIZE = 64
 SEQ_LEN = 64
 D_MODEL = 32
 STRIDE = SEQ_LEN // 2
 N_LAYERS = 4
 N_HEADS = 4
 
-device = "cpu"
-# device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 torch.set_float32_matmul_precision('medium')
 print(f"Using Device: {device}")
 
